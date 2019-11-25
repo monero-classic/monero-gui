@@ -25,7 +25,8 @@ INCLUDEPATH +=  $$WALLET_ROOT/include \
                 $$PWD/src/libwalletqt \
                 $$PWD/src/QR-Code-generator \
                 $$PWD/src \
-                $$WALLET_ROOT/src
+                $$WALLET_ROOT/src \
+                /usr/local/include
 
 HEADERS += \
     filter.h \
@@ -435,7 +436,11 @@ TRANSLATION_TARGET_DIR = $$OUT_PWD/translations
 PRE_TARGETDEPS += langupd compiler_langrel_make_all
 
 RESOURCES += qml.qrc
-CONFIG += qtquickcompiler
+#CONFIG += qtquickcompiler
+
+CONFIG += declarative_debug
+CONFIG += qml_debug
+QML_IMPORT_TRACE = 1
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH = fonts

@@ -556,6 +556,11 @@
         <translation>可用余额</translation>
     </message>
     <message>
+        <location filename="../LeftPanel.qml" line="315"/>
+        <source>Locked balance</source>
+        <translation>锁定金额</translation>
+    </message>
+    <message>
         <location filename="../LeftPanel.qml" line="366"/>
         <source>Send</source>
         <translation>付款</translation>
@@ -715,6 +720,11 @@
         <location filename="../LeftPanel.qml" line="613"/>
         <source>Settings</source>
         <translation>钱包设置</translation>
+    </message>
+    <message>
+        <location filename="../LeftPanel.qml"/>
+        <source>Stake</source>
+        <translation>抵押</translation>
     </message>
 </context>
 <context>
@@ -3036,6 +3046,11 @@ If you don&apos;t have the option to run your own node, there&apos;s an option t
         <translation>可用余额 (约需 ~%1 分钟确认)</translation>
     </message>
     <message>
+        <location filename="../main.qml" line="492"/>
+        <source>Locked balance (~%1 height)</source>
+        <translation>锁定金额 (约需 ~%1 高度解锁)</translation>
+    </message>
+    <message>
         <location filename="../main.qml" line="468"/>
         <location filename="../main.qml" line="1947"/>
         <source>Unlocked balance</source>
@@ -3363,6 +3378,67 @@ Spending address index: </source>
         <location filename="../main.qml" line="1503"/>
         <source>send to the same destination</source>
         <translation>付款至相同地址</translation>
+    </message>
+</context>
+<context>
+    <name>Stake</name>
+    <message>
+        <location filename="../pages/Stake.qml" line="141"/>
+        <source>&lt;style type=&apos;text/css&apos;&gt;a {text-decoration: none; color: #858585; font-size: 14px;}&lt;/style&gt; Amount &lt;font size=&apos;2&apos;&gt;&lt;/font&gt;</source>
+        <translation>&lt;style type=&apos;text/css&apos;&gt;a {text-decoration: none; color: #858585; font-size: 14px;}&lt;/style&gt; 金额 &lt;font size=&apos;2&apos;&gt;&lt;/font&gt;</translation>
+    </message>
+    <message>
+        <location filename="../pages/Stake.qml"/>
+        <source>Lock time (days)</source>
+        <translation>抵押时间（天）</translation>
+    </message>
+    <message>
+        <location filename="../pages/Stake.qml"/>
+        <source>Stake</source>
+        <translation>抵押</translation>
+    </message>
+    <message>
+        <location filename="../pages/Stake.qml"/>
+        <source>Export Stake Settings</source>
+        <translation>导出抵押设置</translation>
+    </message>
+    <message>
+        <location filename="../pages/Stake.qml"/>
+        <source>Auto stake when one expirates</source>
+        <translation>某笔抵押过期时自动抵押</translation>
+    </message>
+    <message>
+        <location filename="../pages/Stake.qml"/>
+        <source>Staked transaction list</source>
+        <translation>抵押交易列表</translation>
+    </message>
+</context>
+<context>
+    <name>StakeTable</name>
+    <message>
+        <location filename="../components/StakeTable.qml"/>
+        <source>Staked:</source>
+        <translation>已抵押</translation>
+    </message>
+    <message>
+        <location filename="../components/StakeTable.qml"/>
+        <source>Date:</source>
+        <translation>操作时间</translation>
+    </message>
+    <message>
+        <location filename="../components/StakeTable.qml"/>
+        <source>Lock time: (block/~days)</source>
+        <translation>抵押时间:（区块/~天）</translation>
+    </message>
+    <message>
+        <location filename="../components/StakeTable.qml"/>
+        <source>Expirate time: (height/~time)</source>
+        <translation>过期时间:（区块高度/~时间）</translation>
+    </message>
+    <message>
+        <location filename="../components/StakeTable.qml"/>
+        <source>No more results</source>
+        <translation>没有更多的抵押信息</translation>
     </message>
 </context>
 </TS>

@@ -77,6 +77,12 @@ quint64 TransactionInfo::unlockTime() const
     return m_pimpl->unlockTime();
 }
 
+QString TransactionInfo::expirateTime() const
+{
+    QDateTime result = QDateTime::fromTime_t(m_pimpl->timestamp() + ((unlockTime() > blockHeight()) ? (unlockTime() - blockHeight()) : 10) * 120);
+    return result.date().toString(Qt::ISODate) + " " + result.time().toString(Qt::ISODate);
+}
+
 QString TransactionInfo::hash() const
 {
     return QString::fromStdString(m_pimpl->hash());

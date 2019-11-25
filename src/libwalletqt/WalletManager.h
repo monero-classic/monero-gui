@@ -155,6 +155,8 @@ public:
     // clear/rename wallet cache
     Q_INVOKABLE bool clearWalletCache(const QString &fileName) const;
 
+    Q_INVOKABLE quint64 heightFromString(const QString& height) const;
+
 signals:
 
     void walletOpened(Wallet * wallet);

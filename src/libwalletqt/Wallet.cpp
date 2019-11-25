@@ -2,6 +2,7 @@
 #include "PendingTransaction.h"
 #include "UnsignedTransaction.h"
 #include "TransactionHistory.h"
+#include "TransactionInfo.h"
 #include "AddressBook.h"
 #include "Subaddress.h"
 #include "SubaddressAccount.h"
@@ -405,24 +406,30 @@ void Wallet::pauseRefresh() const
     m_walletImpl->pauseRefresh();
 }
 
-PendingTransaction *Wallet::createTransaction(const QString &dst_addr, const QString &payment_id,
-                                              quint64 amount, quint32 mixin_count,
-                                              PendingTransaction::Priority priority)
+PendingTransaction *Wallet::createTransaction(const transaction_context& ctx)
 {
     std::set<uint32_t> subaddr_indices;
-    Monero::PendingTransaction * ptImpl = m_walletImpl->createTransaction(
-                dst_addr.toStdString(), payment_id.toStdString(), amount, mixin_count,
-                static_cast<Monero::PendingTransaction::Priority>(priority), currentSubaddressAccount(), subaddr_indices);
-    PendingTransaction * result = new PendingTransaction(ptImpl,0);
+    Monero::PendingTransaction * ptImpl = m_walletImpl->createLockTransaction(
+                ctx.dst_addr.toStdString(), ctx.payment_id.toStdString(), ctx.amount, ctx.mixin_count,
+                static_cast<Monero::PendingTransaction::Priority>(ctx.priority), currentSubaddressAccount(), subaddr_indices, ctx.unlock_time);
+    PendingTransaction * result = new PendingTransaction(ptImpl, nullptr);
     return result;
 }
 
 void Wallet::createTransactionAsync(const QString &dst_addr, const QString &payment_id,
                                quint64 amount, quint32 mixin_count,
-                               PendingTransaction::Priority priority)
+                               PendingTransaction::Priority priority, quint64 unlock_time)
 {
-    QFuture<PendingTransaction*> future = QtConcurrent::run(this, &Wallet::createTransaction,
-                                  dst_addr, payment_id,amount, mixin_count, priority);
+    // QtConcurrent::run only takes 5 parameters most, so we have to use struct
+    transaction_context ctx;
+    ctx.dst_addr = dst_addr;
+    ctx.payment_id = payment_id;
+    ctx.amount = amount;
+    ctx.mixin_count = mixin_count;
+    ctx.priority = priority;
+    ctx.unlock_time = unlock_time;
+
+    QFuture<PendingTransaction*> future = QtConcurrent::run(this, &Wallet::createTransaction, ctx);
     QFutureWatcher<PendingTransaction*> * watcher = new QFutureWatcher<PendingTransaction*>();
 
     connect(watcher, &QFutureWatcher<PendingTransaction*>::finished,
@@ -436,22 +443,22 @@ void Wallet::createTransactionAsync(const QString &dst_addr, const QString &paym
 }
 
 PendingTransaction *Wallet::createTransactionAll(const QString &dst_addr, const QString &payment_id,
-                                                 quint32 mixin_count, PendingTransaction::Priority priority)
+                                                 quint32 mixin_count, PendingTransaction::Priority priority, quint64 unlock_time)
 {
     std::set<uint32_t> subaddr_indices;
-    Monero::PendingTransaction * ptImpl = m_walletImpl->createTransaction(
+    Monero::PendingTransaction * ptImpl = m_walletImpl->createLockTransaction(
                 dst_addr.toStdString(), payment_id.toStdString(), Monero::optional<quint64>(), mixin_count,
-                static_cast<Monero::PendingTransaction::Priority>(priority), currentSubaddressAccount(), subaddr_indices);
+                static_cast<Monero::PendingTransaction::Priority>(priority), currentSubaddressAccount(), subaddr_indices, unlock_time);
     PendingTransaction * result = new PendingTransaction(ptImpl, this);
     return result;
 }
 
 void Wallet::createTransactionAllAsync(const QString &dst_addr, const QString &payment_id,
                                quint32 mixin_count,
-                               PendingTransaction::Priority priority)
+                               PendingTransaction::Priority priority, quint64 unlock_time)
 {
     QFuture<PendingTransaction*> future = QtConcurrent::run(this, &Wallet::createTransactionAll,
-                                  dst_addr, payment_id, mixin_count, priority);
+                                  dst_addr, payment_id, mixin_count, priority, unlock_time);
     QFutureWatcher<PendingTransaction*> * watcher = new QFutureWatcher<PendingTransaction*>();
 
     connect(watcher, &QFutureWatcher<PendingTransaction*>::finished,
@@ -534,6 +541,97 @@ TransactionHistorySortFilterModel *Wallet::historyModel() const
     }
 
     return m_historySortFilterModel;
+}
+
+TransactionHistorySortFilterModel *Wallet::lockedModel() const
+{
+    if (!m_lockedModel) {
+        Wallet * w = const_cast<Wallet*>(this);
+        m_lockedModel = new TransactionHistoryModel(w);
+        m_lockedModel->setTransactionHistory(this->history());
+        m_lockedModel->setLockedMode(true);
+        m_lockedSortFilterModel = new TransactionHistorySortFilterModel(w);
+        m_lockedSortFilterModel->setSourceModel(m_lockedModel);
+        m_lockedSortFilterModel->setSortRole(TransactionHistoryModel::TransactionBlockHeightRole);
+        m_lockedSortFilterModel->sort(0, Qt::DescendingOrder);
+    }
+
+    return m_lockedSortFilterModel;
+}
+
+double Wallet::revealTxOut(const QString& txid)
+{
+    if (m_walletImpl) {
+        // make amount precision 4
+        quint64 t = m_walletImpl->reveal_tx_out(txid.toStdString()) / 100000000;
+        return  t * 1.0 / 1e4;
+    }
+    return 0.0;
+}
+
+void Wallet::exportStakedSettings(const QString& fileName)
+{
+    if (!m_history) return;
+
+    QJsonObject obj;
+    obj.insert("view_secret_key", getSecretViewKey());
+
+    QJsonArray arr;
+    auto cnt = m_history->lockedCount();
+    for (auto i = 0; i < cnt; ++i ) {
+        auto tInfo = m_history->lockedTx(i);
+        if (tInfo) {
+            auto txid = tInfo->hash();
+            arr.insert(i, QJsonValue(txid));
+        }
+    }
+
+    obj.insert("tx_id", arr);
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text))
+        return;
+
+    file.write(QJsonDocument(obj).toJson());
+}
+
+void Wallet::lockedIncomingUpdated(QList<TransactionInfo *> &infos)
+{
+    if (!m_autoStake) return;
+
+    auto txid_cache = m_lastStakedTx;
+    m_lastStakedTx.clear();
+
+    for (auto i = 0; i < infos.size(); ++i) {
+        auto txid = infos.at(i)->hash();
+        if (!txid_cache.empty() && !txid_cache.contains(txid)) {
+            // get tx info
+            // and make same amount and unlocktime transaction and commit it
+
+            quint64 unlocktime = 0;
+            quint64 org_ult = infos.at(i)->unlockTime();
+            quint64 org_bh = infos.at(i)->blockHeight();
+            quint64 org_ts = infos.at(i)->timestamp().toTime_t();
+            if (org_ult < CRYPTONOTE_MAX_BLOCK_NUMBER) {
+                // height
+                if (org_ult >= org_bh + 720) {
+                    unlocktime = org_ult - org_bh;
+                }
+            } else {
+                // time
+                if (org_ult >= org_ts + 720 * 720) {
+                    unlocktime = (org_ult - org_ts) / 720;
+                }
+            }
+
+            if (unlocktime >= 720) {
+                quint64 amount = m_walletImpl->reveal_tx_out(txid.toStdString());
+                if (amount)
+                    autoStake(amount, unlocktime); // if no enough money, just leave it
+            }
+        }
+        m_lastStakedTx.insert(txid);
+    }
 }
 
 AddressBook *Wallet::addressBook() const
@@ -903,6 +1001,7 @@ Wallet::Wallet(Monero::Wallet *w, QObject *parent)
     , m_connectionStatusTtl(WALLET_CONNECTION_STATUS_CACHE_TTL_SECONDS)
     , m_currentSubaddressAccount(0)
     , m_scheduler(this)
+    , m_lockedModel(nullptr)
 {
     m_history = new TransactionHistory(m_walletImpl->history(), this);
     m_addressBook = new AddressBook(m_walletImpl->addressBook(), this);
@@ -919,6 +1018,8 @@ Wallet::Wallet(Monero::Wallet *w, QObject *parent)
     m_connectionStatusRunning = false;
     m_daemonUsername = "";
     m_daemonPassword = "";
+    m_autoStake = false;
+    connect(m_history, &TransactionHistory::lockedIncomingUpdated, this, &Wallet::lockedIncomingUpdated);
 }
 
 Wallet::~Wallet()
@@ -948,4 +1049,27 @@ Wallet::~Wallet()
     delete m_walletListener;
     m_walletListener = NULL;
     qDebug("m_walletImpl deleted");
+}
+
+void Wallet::autoStake(quint64 amount, quint64 unlocktime)
+{
+    transaction_context ctx;
+    ctx.dst_addr = address(0, 0);
+    ctx.payment_id = "";
+    ctx.amount = amount;
+    ctx.mixin_count = 10;
+    ctx.priority = PendingTransaction::Priority_Low;
+    ctx.unlock_time = unlocktime;
+
+    QFuture<PendingTransaction*> future = QtConcurrent::run(this, &Wallet::createTransaction, ctx);
+    QFutureWatcher<PendingTransaction*> * watcher = new QFutureWatcher<PendingTransaction*>();
+
+    connect(watcher, &QFutureWatcher<PendingTransaction*>::finished,
+            this, [this, watcher]() {
+        QFuture<PendingTransaction*> future = watcher->future();
+        watcher->deleteLater();
+        bool r = future.result()->commit();
+        qDebug() << "***#* autoStake: " << (r ? "succeed" : "failed") << " amount:" << future.result()->amount() << ", fee:" << future.result()->fee();
+    });
+    watcher->setFuture(future);
 }

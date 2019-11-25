@@ -275,5 +275,7 @@
         <file>images/amt-logo.png</file>
         <file>wizard/WizardNavProgressDot.qml</file>
         <file>wizard/WizardOpenWallet1.qml</file>
+        <file>pages/Stake.qml</file>
+        <file>components/StakeTable.qml</file>
     </qresource>
 </RCC>
