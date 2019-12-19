@@ -724,7 +724,7 @@
     <message>
         <location filename="../LeftPanel.qml"/>
         <source>Stake</source>
-        <translation>抵押</translation>
+        <translation>抵押挖矿</translation>
     </message>
 </context>
 <context>
