@@ -248,6 +248,15 @@ int main(int argc, char *argv[])
 
     engine.rootContext()->setContextProperty("walletLogPath", logPath);
 
+    QString path = QCoreApplication::applicationDirPath();
+#ifdef Q_OS_MACOS
+    int pos = path.lastIndexOf("/Contents/MacOS");
+    path = path.left(pos);
+    pos = path.lastIndexOf("/");
+    path = path.left(pos);
+#endif
+    engine.rootContext()->setContextProperty("applicationDirPath", path);
+
 // Exclude daemon manager from IOS
 #ifndef Q_OS_IOS
     const QStringList arguments = (QStringList) QCoreApplication::arguments().at(0);

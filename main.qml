@@ -69,6 +69,7 @@ ApplicationWindow {
     property bool viewOnly: false
     property bool foundNewBlock: false
     property int timeToUnlock: 0
+    property int heightToUnlock: 0
     property bool qrScannerEnabled: (typeof builtWithScanner != "undefined") && builtWithScanner
     property int blocksToSync: 1
     property var isMobile: (appWindow.width > 700 && !isAndroid) ? false : true
@@ -138,6 +139,7 @@ ApplicationWindow {
         else if(seq === "Ctrl+Y") leftPanel.keysClicked()
         else if(seq === "Ctrl+D") middlePanel.state = "Advanced"
         else if(seq === "Ctrl+T") middlePanel.state = "Account"
+        else if(seq === "Ctrl+F") middlePanel.state = "Stake"
         else if(seq === "Ctrl+Tab" || seq === "Alt+Tab") {
             /*
             if(middlePanel.state === "Transfer") middlePanel.state = "Receive"
@@ -149,7 +151,7 @@ ApplicationWindow {
             else if(middlePanel.state === "Mining") middlePanel.state = "Sign"
             else if(middlePanel.state === "Sign") middlePanel.state = "Settings"
             */
-            if(middlePanel.state === "Settings") middlePanel.state = "Account"
+            if(middlePanel.state === "Stake") middlePanel.state = "Account"
             else if(middlePanel.state === "Account") middlePanel.state = "Transfer"
             else if(middlePanel.state === "Transfer") middlePanel.state = "AddressBook"
             else if(middlePanel.state === "AddressBook") middlePanel.state = "Receive"
@@ -159,6 +161,7 @@ ApplicationWindow {
             else if(middlePanel.state === "TxKey") middlePanel.state = "SharedRingDB"
             else if(middlePanel.state === "SharedRingDB") middlePanel.state = "Sign"
             else if(middlePanel.state === "Sign") middlePanel.state = "Settings"
+            else if(middlePanel.state === "Settings") middlePanel.state = "Stake"
         } else if(seq === "Ctrl+Shift+Backtab" || seq === "Alt+Shift+Backtab") {
             /*
             if(middlePanel.state === "Settings") middlePanel.state = "Sign"
@@ -179,7 +182,8 @@ ApplicationWindow {
             else if(middlePanel.state === "Receive") middlePanel.state = "AddressBook"
             else if(middlePanel.state === "AddressBook") middlePanel.state = "Transfer"
             else if(middlePanel.state === "Transfer") middlePanel.state = "Account"
-            else if(middlePanel.state === "Account") middlePanel.state = "Settings"
+            else if(middlePanel.state === "Account") middlePanel.state = "Stake"
+            else if(middlePanel.state === "Stake") middlePanel.state = "Settings"
         }
 
         if (middlePanel.state !== "Advanced") updateBalance();
@@ -272,6 +276,7 @@ ApplicationWindow {
 
         // Hide titlebar based on persistentSettings.customDecorations
         titleBar.visible = persistentSettings.customDecorations;
+        titleBar.maximizeClicked();
     }
 
     function closeWallet(callback) {
@@ -396,15 +401,18 @@ ApplicationWindow {
 
         var balance_unlocked = qsTr("HIDDEN");
         var balance = qsTr("HIDDEN");
+        var balance_locked = qsTr("HIDDEN");
         if(!hideBalanceForced && !persistentSettings.hideBalance){
             balance_unlocked = walletManager.displayAmount(currentWallet.unlockedBalance(currentWallet.currentSubaddressAccount));
             balance = walletManager.displayAmount(currentWallet.balance(currentWallet.currentSubaddressAccount));
+            balance_locked = walletManager.displayAmount(currentWallet.balance(currentWallet.currentSubaddressAccount) - currentWallet.unlockedBalance(currentWallet.currentSubaddressAccount));
         }
 
         middlePanel.unlockedBalanceText = balance_unlocked;
         leftPanel.unlockedBalanceText = balance_unlocked;
         middlePanel.balanceText = balance;
         leftPanel.balanceText = balance;
+        leftPanel.lockedBalanceText = balance_locked;
 
         var accountLabel = currentWallet.getSubaddressLabel(currentWallet.currentSubaddressAccount, 0);
         leftPanel.balanceLabelText = qsTr("Balance (#%1%2)").arg(currentWallet.currentSubaddressAccount).arg(accountLabel === "" ? "" : (" – " + accountLabel));
@@ -480,6 +488,8 @@ ApplicationWindow {
             currentWallet.history.refresh(currentWallet.currentSubaddressAccount)
             timeToUnlock = currentWallet.history.minutesToUnlock
             leftPanel.minutesToUnlockTxt = (timeToUnlock > 0)? (timeToUnlock == 20)? qsTr("Unlocked balance (waiting for block)") : qsTr("Unlocked balance (~%1 min)").arg(timeToUnlock) : qsTr("Unlocked balance");
+            heightToUnlock = currentWallet.history.blockToUnlock
+            leftPanel.heightsToUnlockTxt = (heightToUnlock > 60) ? qsTr("Locked balance (~%1 height)").arg(heightToUnlock) : qsTr("Locked balance");
         }
     }
 
@@ -686,6 +696,7 @@ ApplicationWindow {
             //        + ", fee: " + walletManager.displayAmount(transaction.fee/1000000000000.0));
             console.log("######## Transaction created, amount: " + transaction.amount
                     + ", fee: " + walletManager.displayAmount(transaction.fee));
+            console.log("%%%%%%% Tx id: " + transaction.txid);
 
             // here we show confirmation popup;
             transactionConfirmationPopup.title = qsTr("Please confirm transaction:\n") + translationManager.emptyString;
@@ -710,15 +721,16 @@ ApplicationWindow {
     }
 
 
-    // called on "transfer"
-    function handlePayment(address, paymentId, amount, mixinCount, priority, description, createFile) {
+    // called on "transfer" or "stake"
+    function handlePayment(address, paymentId, amount, mixinCount, priority, description, unlocktime, createFile) {
         console.log("Creating transaction: ")
         console.log("\taddress: ", address,
                     ", payment_id: ", paymentId,
                     ", amount: ", amount,
                     ", mixins: ", mixinCount,
                     ", priority: ", priority,
-                    ", description: ", description);
+                    ", description: ", description,
+                    ", unlock_time: ", unlocktime);
 
         showProcessingSplash("Creating transaction");
 
@@ -755,10 +767,14 @@ ApplicationWindow {
             }
         }
 
+        // we use this function to parse string to quint64
+        var unlockheight = walletManager.heightFromString(unlocktime);
+        console.log("unlockheight: " + unlockheight)
+
         if (amount === "(all)")
-            currentWallet.createTransactionAllAsync(address, paymentId, mixinCount, priority);
+            currentWallet.createTransactionAllAsync(address, paymentId, mixinCount, priority, unlockheight);
         else
-            currentWallet.createTransactionAsync(address, paymentId, amountxmr, mixinCount, priority);
+            currentWallet.createTransactionAsync(address, paymentId, amountxmr, mixinCount, priority, unlockheight);
     }
 
     //Choose where to save transaction
@@ -873,6 +889,7 @@ ApplicationWindow {
 
             // Clear tx fields
             middlePanel.transferView.clearFields()
+            middlePanel.stakeView.clearFields()
 
         }
         informationPopup.onCloseCallback = null
@@ -1510,6 +1527,12 @@ ApplicationWindow {
             }
 
             onKeysClicked: Utils.showSeedPage();
+
+            onStakeClicked: {
+                middlePanel.state = "Stake";
+                middlePanel.flickable.contentY = 0;
+                updateBalance();
+            }
             
             onAccountClicked: {
                 middlePanel.state = "Account";

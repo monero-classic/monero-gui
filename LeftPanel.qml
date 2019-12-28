@@ -42,10 +42,13 @@ Rectangle {
     property alias unlockedBalanceLabelVisible: unlockedBalanceLabel.visible
     property alias balanceLabelText: balanceLabel.text
     property alias balanceText: balanceText.text
+    property alias lockedBalanceLabelText: lockedBalanceLabel.text
+    property alias lockedBalanceText: lockedBalanceText.text
     property alias networkStatus : networkStatus
     property alias progressBar : progressBar
     property alias daemonProgressBar : daemonProgressBar
     property alias minutesToUnlockTxt: unlockedBalanceLabel.text
+    property alias heightsToUnlockTxt: lockedBalanceLabel.text
     property int titleBarHeight: 50
     property string copyValue: ""
     Clipboard { id: clipboard }
@@ -62,6 +65,7 @@ Rectangle {
     signal keysClicked()
     signal merchantClicked()
     signal accountClicked()
+    signal stakeClicked()
 
     function selectItem(pos) {
         menuColumn.previousButton.checked = false
@@ -78,6 +82,7 @@ Rectangle {
         else if(pos === "Advanced") menuColumn.previousButton = advancedButton
         else if(pos === "Keys") menuColumn.previousButton = keysButton
         else if(pos === "Account") menuColumn.previousButton = accountButton
+        else if(pos === "Stake") menuColumn.previousButton = stakeButton
         menuColumn.previousButton.checked = true
     }
 
@@ -100,7 +105,7 @@ Rectangle {
         visible: true
         z: 2
         id: column1
-        height: 210
+        height: 230
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -118,7 +123,7 @@ Rectangle {
                 width: 260 * scaleRatio
 
                 Image {
-                    width: 260; height: 170
+                    width: 260; height: 230
                     fillMode: Image.PreserveAspectFit
                     source: "images/card-background.png"
                 }
@@ -196,7 +201,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 20
                     anchors.top: parent.top
-                    anchors.topMargin: 76
+                    anchors.topMargin: 96
                     font.family: "Arial"
                     color: "#FFFFFF"
                     text: "N/A"
@@ -234,7 +239,45 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 20
                     anchors.top: parent.top
-                    anchors.topMargin: 126
+                    anchors.topMargin: 136
+                    font.family: "Arial"
+                    color: "#FFFFFF"
+                    text: "N/A"
+                    // dynamically adjust text size
+                    font.pixelSize: {
+                        var digits = text.split('.')[0].length
+                        var defaultSize = 20;
+                        if(digits > 3) {
+                            return defaultSize - 0.6*digits
+                        }
+                        return defaultSize;
+                    }
+
+                    MouseArea {
+                        hoverEnabled: true
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: {
+                            parent.color = MoneroComponents.Style.orange
+                        }
+                        onExited: {
+                            parent.color = MoneroComponents.Style.white
+                        }
+                        onClicked: {
+                                console.log("Copied to clipboard");
+                                clipboard.setText(parent.text);
+                                appWindow.showStatusMessage(qsTr("Copied to clipboard"),3)
+                        }
+                    }
+                }
+
+                Text {
+                    id: lockedBalanceText
+                    visible: true
+                    anchors.left: parent.left
+                    anchors.leftMargin: 20
+                    anchors.top: parent.top
+                    anchors.topMargin: 176
                     font.family: "Arial"
                     color: "#FFFFFF"
                     text: "N/A"
@@ -267,6 +310,17 @@ Rectangle {
                 }
 
                 MoneroComponents.Label {
+                    id: lockedBalanceLabel
+                    visible: true
+                    text: qsTr("Locked balance") + translationManager.emptyString
+                    fontSize: 14
+                    anchors.left: parent.left
+                    anchors.leftMargin: 20
+                    anchors.top: parent.top
+                    anchors.topMargin: 160
+                }
+
+                MoneroComponents.Label {
                     id: unlockedBalanceLabel
                     visible: true
                     text: qsTr("Unlocked balance") + translationManager.emptyString
@@ -274,7 +328,7 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 20
                     anchors.top: parent.top
-                    anchors.topMargin: 110
+                    anchors.topMargin: 120
                 }
 
                 MoneroComponents.Label {
@@ -285,10 +339,11 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 20
                     anchors.top: parent.top
-                    anchors.topMargin: 60
+                    anchors.topMargin: 80
                     elide: Text.ElideRight
                     textWidth: 238
                 }
+
                 Item { //separator
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -627,7 +682,7 @@ Rectangle {
                 color: "#313131"
                 height: 1
             }
-            // ------------- Sign/verify tab ---------------
+            // ------------- Seed&Keys tab ---------------
             MoneroComponents.MenuButton {
                 id: keysButton
                 visible: appWindow.walletMode >= 2
@@ -650,6 +705,27 @@ Rectangle {
                 anchors.leftMargin: 16
                 color: "#313131"
                 height: 1
+            }
+            // ------------- Stake tab ---------------
+            MoneroComponents.MenuButton {
+                id: stakeButton
+                anchors.left: parent.left
+                anchors.right: parent.right
+                text: qsTr("Stake") + translationManager.emptyString
+                symbol: qsTr("F") + translationManager.emptyString
+                dotColor: "#F43D19"
+                onClicked: {
+                    parent.previousButton.checked = false
+                    parent.previousButton = stakeButton
+                    panel.stakeClicked()
+                }
+            }
+
+            Rectangle {
+                visible: stakeButton.present  && appWindow.walletMode >= 2
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.leftMargin: 16
             }
 
         } // Column

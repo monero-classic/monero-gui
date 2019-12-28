@@ -30,6 +30,7 @@ class TransactionInfo : public QObject
     Q_PROPERTY(QString time READ time)
     Q_PROPERTY(QString paymentId READ paymentId)
     Q_PROPERTY(QString destinations_formatted READ destinations_formatted)
+    Q_PROPERTY(QString expirateTime READ expirateTime)
 
 public:
     enum Direction {
@@ -53,6 +54,7 @@ public:
     QString label() const;
     quint64 confirmations() const;
     quint64 unlockTime() const;
+    QString expirateTime() const;
     //! transaction_id
     QString hash() const;
     QDateTime timestamp() const;

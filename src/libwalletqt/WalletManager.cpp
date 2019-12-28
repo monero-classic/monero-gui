@@ -208,6 +208,11 @@ quint64 WalletManager::amountFromString(const QString &amount) const
     return Monero::Wallet::amountFromString(amount.toStdString());
 }
 
+quint64 WalletManager::heightFromString(const QString& height) const
+{
+    return height.toULongLong();
+}
+
 quint64 WalletManager::amountFromDouble(double amount) const
 {
     return Monero::Wallet::amountFromDouble(amount);

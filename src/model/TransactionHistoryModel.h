@@ -40,7 +40,9 @@ public:
         TransactionTimeRole,
         TransactionAtomicAmountRole,
         // only for outgoing
-        TransactionDestinationsRole
+        TransactionDestinationsRole,
+        TransactionUnlocktimeRole,
+        TransactionExpirateTimeRole
     };
     Q_ENUM(TransactionInfoRole)
 
@@ -60,6 +62,8 @@ public:
     QDateTime lastDateTime() const;
 
 
+    void setLockedMode(bool locked) { m_lockedIncoming = locked; }
+
 
     /// QAbstractListModel
     virtual QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const override;
@@ -71,6 +75,7 @@ signals:
 
 private:
     TransactionHistory * m_transactionHistory;
+    bool    m_lockedIncoming;
 };
 
 #endif // TRANSACTIONHISTORYMODEL_H

@@ -7,7 +7,7 @@
 
 
 TransactionHistoryModel::TransactionHistoryModel(QObject *parent)
-    : QAbstractListModel(parent), m_transactionHistory(nullptr)
+    : QAbstractListModel(parent), m_transactionHistory(nullptr), m_lockedIncoming(false)
 {
 
 }
@@ -37,12 +37,17 @@ QVariant TransactionHistoryModel::data(const QModelIndex &index, int role) const
         return QVariant();
     }
 
-    if (index.row() < 0 || (unsigned)index.row() >= m_transactionHistory->count()) {
+    if (index.row() < 0 || (!m_lockedIncoming && static_cast<unsigned>(index.row()) >= m_transactionHistory->count())
+            || (m_lockedIncoming && static_cast<unsigned>(index.row()) >= m_transactionHistory->lockedCount())) {
         return QVariant();
     }
 
-    TransactionInfo * tInfo = m_transactionHistory->transaction(index.row());
-
+    TransactionInfo * tInfo = nullptr;
+    if (!m_lockedIncoming) {
+        tInfo = m_transactionHistory->transaction(index.row());
+    } else {
+        tInfo = m_transactionHistory->lockedTx(index.row());
+    }
 
     Q_ASSERT(tInfo);
     if (!tInfo) {
@@ -129,6 +134,11 @@ QVariant TransactionHistoryModel::data(const QModelIndex &index, int role) const
     case TransactionDestinationsRole:
         result = tInfo->destinations_formatted();
         break;
+    case TransactionUnlocktimeRole:
+        result = tInfo->unlockTime();
+        break;
+    case TransactionExpirateTimeRole:
+        result = tInfo->expirateTime();
     }
 
     return result;
@@ -137,7 +147,7 @@ QVariant TransactionHistoryModel::data(const QModelIndex &index, int role) const
 int TransactionHistoryModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
-    return m_transactionHistory ? m_transactionHistory->count() : 0;
+    return m_transactionHistory ? (m_lockedIncoming ? m_transactionHistory->lockedCount(): m_transactionHistory->count()) : 0;
 }
 
 QHash<int, QByteArray> TransactionHistoryModel::roleNames() const
@@ -164,6 +174,8 @@ QHash<int, QByteArray> TransactionHistoryModel::roleNames() const
     roleNames.insert(TransactionDateRole, "date");
     roleNames.insert(TransactionTimeRole, "time");
     roleNames.insert(TransactionDestinationsRole, "destinations");
+    roleNames.insert(TransactionUnlocktimeRole, "unlockTime");
+    roleNames.insert(TransactionExpirateTimeRole, "expirateTime");
     return roleNames;
 }
 

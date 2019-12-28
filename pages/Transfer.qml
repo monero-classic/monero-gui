@@ -42,7 +42,7 @@ import "../js/TxUtils.js" as TxUtils
 Rectangle {
     id: root
     signal paymentClicked(string address, string paymentId, string amount, int mixinCount,
-                          int priority, string description)
+                          int priority, string description, string unlocktime)
     signal sweepUnmixableClicked()
 
     color: "transparent"
@@ -418,6 +418,10 @@ Rectangle {
                   if(appWindow.viewOnly){
                       return false;
                   }
+
+                  if(!appWindow.walletSynced) {
+                      return false;
+                  }
                   
                   // There is no warning box displayed
                   if(root.warningContent !== ''){
@@ -449,7 +453,7 @@ Rectangle {
                   console.log("amount: " + amountLine.text)
                   addressLine.text = addressLine.text.trim()
                   setPaymentId(paymentIdLine.text.trim());
-                  root.paymentClicked(addressLine.text, paymentIdLine.text, amountLine.text, root.mixin, priority, descriptionLine.text)
+                  root.paymentClicked(addressLine.text, paymentIdLine.text, amountLine.text, root.mixin, priority, descriptionLine.text, "0")
               }
           }
       }
@@ -532,7 +536,7 @@ Rectangle {
                     console.log("amount: " + amountLine.text)
                     addressLine.text = addressLine.text.trim()
                     setPaymentId(paymentIdLine.text.trim());
-                    root.paymentClicked(addressLine.text, paymentIdLine.text, amountLine.text, root.mixin, priority, descriptionLine.text)
+                    root.paymentClicked(addressLine.text, paymentIdLine.text, amountLine.text, root.mixin, priority, descriptionLine.text, "0")
 
                 }
             }

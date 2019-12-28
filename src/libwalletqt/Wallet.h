@@ -28,6 +28,7 @@ class Subaddress;
 class SubaddressModel;
 class SubaddressAccount;
 class SubaddressAccountModel;
+class TransactionInfo;
 
 class Wallet : public QObject
 {
@@ -57,6 +58,7 @@ class Wallet : public QObject
     Q_PROPERTY(QString publicSpendKey READ getPublicSpendKey)
     Q_PROPERTY(QString daemonLogPath READ getDaemonLogPath CONSTANT)
     Q_PROPERTY(quint64 walletCreationHeight READ getWalletCreationHeight WRITE setWalletCreationHeight NOTIFY walletCreationHeightChanged)
+    Q_PROPERTY(TransactionHistorySortFilterModel * lockedModel READ lockedModel NOTIFY lockedModelChanged)
 
 public:
 
@@ -185,23 +187,31 @@ public:
     Q_INVOKABLE void startRefresh() const;
     Q_INVOKABLE void pauseRefresh() const;
 
+    struct transaction_context
+    {
+        QString dst_addr;
+        QString payment_id;
+        quint64 amount;
+        quint32 mixin_count;
+        PendingTransaction::Priority priority;
+        quint64 unlock_time;
+    };
+
     //! creates transaction
-    Q_INVOKABLE PendingTransaction * createTransaction(const QString &dst_addr, const QString &payment_id,
-                                                       quint64 amount, quint32 mixin_count,
-                                                       PendingTransaction::Priority priority);
+    Q_INVOKABLE PendingTransaction * createTransaction(const transaction_context& ctx);
 
     //! creates async transaction
     Q_INVOKABLE void createTransactionAsync(const QString &dst_addr, const QString &payment_id,
                                             quint64 amount, quint32 mixin_count,
-                                            PendingTransaction::Priority priority);
+                                            PendingTransaction::Priority priority, quint64 unlock_time);
 
     //! creates transaction with all outputs
     Q_INVOKABLE PendingTransaction * createTransactionAll(const QString &dst_addr, const QString &payment_id,
-                                                       quint32 mixin_count, PendingTransaction::Priority priority);
+                                                       quint32 mixin_count, PendingTransaction::Priority priority, quint64 unlock_time);
 
     //! creates async transaction with all outputs
     Q_INVOKABLE void createTransactionAllAsync(const QString &dst_addr, const QString &payment_id,
-                                               quint32 mixin_count, PendingTransaction::Priority priority);
+                                               quint32 mixin_count, PendingTransaction::Priority priority, quint64 unlock_time);
 
     //! creates sweep unmixable transaction
     Q_INVOKABLE PendingTransaction * createSweepUnmixableTransaction();
@@ -227,6 +237,8 @@ public:
 
     //! returns transaction history model
     TransactionHistorySortFilterModel *historyModel() const;
+
+    TransactionHistorySortFilterModel *lockedModel() const;
 
     //! returns Address book
     AddressBook *addressBook() const;
@@ -308,6 +320,12 @@ public:
     Q_INVOKABLE void segregationHeight(quint64 height);
     Q_INVOKABLE void keyReuseMitigation2(bool mitigation);
 
+    Q_INVOKABLE double revealTxOut(const QString& txid);
+
+    Q_INVOKABLE void exportStakedSettings(const QString& fileName);
+
+    Q_INVOKABLE void setAutoStake(bool flag) { m_autoStake = flag; }
+
     // TODO: setListenter() when it implemented in API
 signals:
     // emitted on every event happened with wallet
@@ -324,16 +342,22 @@ signals:
     void newBlock(quint64 height, quint64 targetHeight);
     void historyModelChanged() const;
     void walletCreationHeightChanged();
+    void lockedModelChanged() const;
 
     // emitted when transaction is created async
     void transactionCreated(PendingTransaction * transaction, QString address, QString paymentId, quint32 mixinCount);
 
     void connectionStatusChanged(ConnectionStatus status) const;
 
+private slots:
+    void lockedIncomingUpdated(QList<TransactionInfo*>& info);
+
 private:
     Wallet(QObject * parent = nullptr);
     Wallet(Monero::Wallet *w, QObject * parent = 0);
     ~Wallet();
+
+    void autoStake(quint64 amount, quint64 unlocktime);
 private:
     friend class WalletManager;
     friend class WalletListenerImpl;
@@ -344,6 +368,10 @@ private:
     // Used for UI history view
     mutable TransactionHistoryModel * m_historyModel;
     mutable TransactionHistorySortFilterModel * m_historySortFilterModel;
+
+    mutable TransactionHistoryModel * m_lockedModel;
+    mutable TransactionHistorySortFilterModel * m_lockedSortFilterModel;
+
     QString m_paymentId;
     mutable QTime   m_daemonBlockChainHeightTime;
     mutable quint64 m_daemonBlockChainHeight;
@@ -368,6 +396,9 @@ private:
     QString m_daemonPassword;
     Monero::WalletListener *m_walletListener;
     FutureScheduler m_scheduler;
+
+    QSet<QString>  m_lastStakedTx;
+    mutable bool m_autoStake;
 };
 
 

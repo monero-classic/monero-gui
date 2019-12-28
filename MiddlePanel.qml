@@ -68,8 +68,9 @@ Rectangle {
     property AddressBook addressBookView: AddressBook { }
     property Keys keysView: Keys { }
     property Account accountView: Account { }
+    property Stake stakeView: Stake { }
 
-    signal paymentClicked(string address, string paymentId, string amount, int mixinCount, int priority, string description)
+    signal paymentClicked(string address, string paymentId, string amount, int mixinCount, int priority, string description, string unlocktime)
     signal sweepUnmixableClicked()
     signal generatePaymentIdInvoked()
     signal getProofClicked(string txid, string address, string message);
@@ -106,6 +107,7 @@ Rectangle {
 
     function updateStatus(){
         transferView.updateStatus();
+        stakeView.updateStatus();
     }
 
     // send from AddressBook
@@ -164,7 +166,12 @@ Rectangle {
 	           name: "Account"
 	           PropertyChanges { target: root; currentView: accountView }
 	           PropertyChanges { target: mainFlickable; contentHeight: minHeight }
-            }	
+            }, State {
+                name: "Stake"
+                PropertyChanges { target: stakeView; model: appWindow.currentWallet ? appWindow.currentWallet.lockedModel : null }
+                PropertyChanges { target: root; currentView: stakeView }
+                PropertyChanges { target: mainFlickable; contentHeight: stakeView.transferHeight1 + 80 }
+            }
         ]
 
     // color stripe at the top
@@ -257,11 +264,20 @@ Rectangle {
         target: transferView
         onPaymentClicked : {
             console.log("MiddlePanel: paymentClicked")
-            paymentClicked(address, paymentId, amount, mixinCount, priority, description)
+            paymentClicked(address, paymentId, amount, mixinCount, priority, description, unlocktime)
         }
         onSweepUnmixableClicked : {
             console.log("MiddlePanel: sweepUnmixableClicked")
             sweepUnmixableClicked()
+        }
+    }
+
+    Connections {
+        ignoreUnknownSignals: false
+        target: stakeView
+        onPaymentClicked : {
+            console.log("MiddlePanel: paymentClicked")
+            paymentClicked(address, paymentId, amount, mixinCount, priority, description, unlocktime)
         }
     }
 }
